@@ -1,0 +1,7 @@
+Converts CSV files to JSON. JSON is sent to STDOUT. You'll need node.
+
+Usage:
+
+csv-to-json.js myfile.csv > myoutput.json
+
+That's it!
