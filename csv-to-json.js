@@ -54,10 +54,11 @@ function parseCSV(textData, success, error) {
 	var lineCharIndex		= 0;
 	var rowIndex			= 0;
 	var rowIsEmpty			= true;
-
+	
 	var GRAMMAR_QUOTEMARK	= "\"";
 	var GRAMMAR_ESCAPE		= "\\";
 	var GRAMMAR_NEWLINE		= "\n";
+	var GRAMMAR_NEWLINE_ALT	= "\r";
 	var GRAMMAR_DELIMITER	= ",";
 
 	// Only for debugging!
@@ -79,41 +80,71 @@ function parseCSV(textData, success, error) {
 			// Flip our quoted value state around
 			inQuotedValue = !inQuotedValue;
 
-		} else if (currentCharacter === GRAMMAR_NEWLINE && previousCharacter !== GRAMMAR_ESCAPE && !inQuotedValue) {
+		} else if ((currentCharacter === GRAMMAR_NEWLINE || currentCharacter === GRAMMAR_NEWLINE_ALT) &&
+						previousCharacter !== GRAMMAR_ESCAPE && !inQuotedValue) {
+			
 			// We hit a newline while not in quotes or preceded by an escape character.
 			// Push the line onto the stack, and assume we're moving to the next line
 
 			if (lineType !== "header") {
+
+				// Push final value for row into data
+				if (currentValue.length) {
+					if (csvHeaderRow[valueIndex]) {
+						
+						// Lazy row creation (so if a row is blank, we don't make a junky row)
+						if (!processedData[rowIndex]) {
+							processedData.push({});
+							rowIsEmpty = false;
+						}
+
+						processedData[rowIndex][csvHeaderRow[valueIndex]] = currentValue;
+					} else {
+						console.error("Value out of range relative to header! Dropped. [Line %d, Char %d]",++lineIndex,++lineCharIndex);
+					}
+				}
+
+
 				// Only incrememt the row index if the last row had data
 				if (!rowIsEmpty) {
 					rowIndex ++;
 					rowIsEmpty = true; // ...and reset.
 				}
 			} else {
+				console.error("Shifting from head, value so far:",currentValue);
 				lineType = "body";
+
+				if (currentValue.length) {
+					csvHeaderRow.push(currentValue);
+				}
 			}
 
+			currentValue = "";
 			valueIndex = 0;
 
 		} else if (currentCharacter === GRAMMAR_DELIMITER && previousCharacter !== GRAMMAR_ESCAPE && !inQuotedValue) {
 			// We hit a value delimiter while not in quotes or preceded by an escape character.
 			// Push the value into the current row object, and increase value index
 
-			if (lineType === "header") {
-				csvHeaderRow.push(currentValue);
-			} else {
-				if (csvHeaderRow[valueIndex]) {
-					
-					// Lazy row creation (so if a row is blank, we don't make a junky row)
-					if (!processedData[rowIndex]) {
-						processedData.push({});
-						rowIsEmpty = false;
-					}
-
-					processedData[rowIndex][csvHeaderRow[valueIndex]] = currentValue;
+			if (currentValue.length) {
+				if (lineType === "header") {
+					csvHeaderRow.push(currentValue);
 				} else {
-					console.error("Value out of range relative to header! Dropped. [Line %d, Char %d]",++lineIndex,++lineCharIndex);
+					if (csvHeaderRow[valueIndex]) {
+						
+						// Lazy row creation (so if a row is blank, we don't make a junky row)
+						if (!processedData[rowIndex]) {
+							processedData.push({});
+							rowIsEmpty = false;
+						}
+
+						processedData[rowIndex][csvHeaderRow[valueIndex]] = currentValue;
+					} else {
+						console.error("Value out of range relative to header! Dropped. [Line %d, Char %d]",++lineIndex,++lineCharIndex);
+					}
 				}
+			} else {
+				console.error("Found empty value for '%s'! Dropped. [Line %d, Char %d]",csvHeaderRow[valueIndex],++lineIndex,++lineCharIndex);
 			}
 
 			currentValue = "";
@@ -123,11 +154,17 @@ function parseCSV(textData, success, error) {
 			// Don't include single escape characters in the file.
 			// Just ignore for now
 			
-		} else if (previousCharacter === GRAMMAR_ESCAPE && currentCharacter !== GRAMMAR_NEWLINE) {
+		} else if (previousCharacter === GRAMMAR_ESCAPE &&
+					(currentCharacter !== GRAMMAR_NEWLINE && currentCharacter !== GRAMMAR_NEWLINE_ALT)) {
+			
 			// Altermate escape logic will go here...
 			// Still parses pretty much anything without any fancy escapes
 			console.error("Hit unhandled escape character '%s'. Dropped. [Line %d, Char %d]",currentCharacter,++lineIndex,++lineCharIndex);
-
+		
+		} else if (previousCharacter === GRAMMAR_NEWLINE && currentCharacter === GRAMMAR_NEWLINE_ALT) {
+			// Windows Line-break.
+			// Drop it!
+			
 		} else {
 			// No other instructions? Just build on our current value!
 			currentValue += currentCharacter;
