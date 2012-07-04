@@ -1,0 +1,18 @@
+{
+  "author": "Christopher Giffard <christopher.giffard@cgiffard.com>",
+  "name": "csv2json",
+  "description": "Converts CSV files to JSON",
+  "version": "0.0.1",
+  "homepage": "http://www.github.com/cgiffard/CSVtoJSON.js",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/cgiffard/CSVtoJSON.js.git"
+  },
+  "main": "parser.js",
+  "engines": {
+    "node": "~0.6.9"
+  },
+  "dependencies": {},
+  "devDependencies": {},
+  "optionalDependencies": {}
+}

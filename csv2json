@@ -1,0 +1,39 @@
+#!/usr/bin/env node
+
+var fs			= require("fs"),
+	parseCSV	= require("./parser.js");
+
+// Collect files we've been asked to parse
+var files = process.argv.slice(1).filter(function(item) { return (item.toLowerCase().indexOf(".js") === -1); });
+
+if (files.length) {
+	files.forEach(parseConvert);
+} else {
+	// In future, open STDIN
+	console.error("No files specified for conversion.");
+}
+
+function parseConvert(filename) {
+	var fileBuffer;
+	try {
+		if ((fileBuffer = fs.readFileSync(filename))) {
+			parseCSV(
+				fileBuffer.toString(),
+				function(error,outputData) {
+					if (error) {
+						console.error("An error occurred while attempting to process '%s'.",filename);
+						error.forEach(function(errorMessage) {
+							console.error(errorMessage);
+						});
+					}
+					
+					console.log(JSON.stringify(outputData));
+				});
+		} else {
+			console.error("Unable to locate or open the file '%s'.",filename);
+		}
+	} catch(error) {
+		console.error("Unable to locate, open, or parse the file '%s'.",filename);
+		console.log(error);
+	}
+}

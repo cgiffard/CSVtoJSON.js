@@ -1,46 +1,15 @@
-#!/usr/bin/env node
+// CSV2JSON
+// Christopher Giffard
 
 // Using a state loop, rather than regex or split-by-line
 // The idea is this *should* parse really badly formatted CSVs.
 
-// I haven't been bothered to make this work with STDIN yet.
+// I haven't been bothered to make this work with STDIN and/or streams yet.
 // Will eventually.
 
-var fs = require("fs");
-
-// Collect files we've been asked to parse
-var files = process.argv.slice(1).filter(function(item) { return (item.toLowerCase().indexOf(".js") === -1); });
-
-if (files.length) {
-	files.forEach(parseConvert);
-} else {
-	// In future, open STDIN
-	console.error("No files specified for conversion.");
-}
-
-function parseConvert(filename) {
-	var fileBuffer;
-	try {
-		if ((fileBuffer = fs.readFileSync(filename))) {
-			parseCSV(
-				fileBuffer.toString(),
-				function(outputData) {
-					
-				},
-				function(errorDetail) {
-					console.error("An error occurred while attempting to process '%s'.",filename);
-					console.error(errorDetail);
-				});
-		} else {
-			console.error("Unable to locate or open the file '%s'.",filename);
-		}
-	} catch(error) {
-		console.error("Unable to locate, open, or parse the file '%s'.",filename);
-		console.log(error);
-	}
-}
-
-function parseCSV(textData, success, error) {
+function parseCSV(textData, callback) {
+	textData = textData instanceof String ? textData : String(textData || "");
+	
 	var cachedLength		= textData.length;
 	var previousCharacter	= null;
 	var currentCharacter	= null;
@@ -54,12 +23,19 @@ function parseCSV(textData, success, error) {
 	var lineCharIndex		= 0;
 	var rowIndex			= 0;
 	var rowIsEmpty			= true;
+	var errorLog			= [];
 	
 	var GRAMMAR_QUOTEMARK	= "\"";
 	var GRAMMAR_ESCAPE		= "\\";
 	var GRAMMAR_NEWLINE		= "\n";
 	var GRAMMAR_NEWLINE_ALT	= "\r";
 	var GRAMMAR_DELIMITER	= ",";
+	
+	callback = callback instanceof Function ? callback : function() {};
+	
+	function logErr(message) {
+		errorLog.push(message);
+	};
 
 	// Only for debugging!
 	// console.log("Processing %d chars.",cachedLength);
@@ -100,7 +76,7 @@ function parseCSV(textData, success, error) {
 
 						processedData[rowIndex][csvHeaderRow[valueIndex]] = currentValue;
 					} else {
-						console.error("Value out of range relative to header! Dropped. [Line %d, Char %d]",++lineIndex,++lineCharIndex);
+						logErr("Value out of range relative to header! Dropped. [Line " + (++lineIndex) + ", Char " + (++lineCharIndex) + "]");
 					}
 				}
 
@@ -111,7 +87,6 @@ function parseCSV(textData, success, error) {
 					rowIsEmpty = true; // ...and reset.
 				}
 			} else {
-				console.error("Shifting from head, value so far:",currentValue);
 				lineType = "body";
 
 				if (currentValue.length) {
@@ -140,11 +115,11 @@ function parseCSV(textData, success, error) {
 
 						processedData[rowIndex][csvHeaderRow[valueIndex]] = currentValue;
 					} else {
-						console.error("Value out of range relative to header! Dropped. [Line %d, Char %d]",++lineIndex,++lineCharIndex);
+						logErr("Value out of range relative to header! Dropped. [Line " + (++lineIndex) + ", Char " + (++lineCharIndex) + "]");
 					}
 				}
 			} else {
-				console.error("Found empty value for '%s'! Dropped. [Line %d, Char %d]",csvHeaderRow[valueIndex],++lineIndex,++lineCharIndex);
+				logErr("Found empty value for '" + csvHeaderRow[valueIndex] + "'! Dropped. [Line " + (++lineIndex) + ", Char " + (++lineCharIndex) + "]");
 			}
 
 			currentValue = "";
@@ -159,7 +134,7 @@ function parseCSV(textData, success, error) {
 			
 			// Altermate escape logic will go here...
 			// Still parses pretty much anything without any fancy escapes
-			console.error("Hit unhandled escape character '%s'. Dropped. [Line %d, Char %d]",currentCharacter,++lineIndex,++lineCharIndex);
+			logErr("Hit unhandled escape character '" + currentCharacter + "'. Dropped. [Line " + (++lineIndex) + ", Char " + (++lineCharIndex) + "]");
 		
 		} else if (previousCharacter === GRAMMAR_NEWLINE && currentCharacter === GRAMMAR_NEWLINE_ALT) {
 			// Windows Line-break.
@@ -175,5 +150,7 @@ function parseCSV(textData, success, error) {
 
 	// Only for debugging!
 	// console.log("Processed %d row data structure out of %d line file.",processedData.length,++lineIndex);
-	console.log(JSON.stringify(processedData));
+	return callback((errorLog.length ? errorLog : null),processedData);
 }
+
+module.exports = parseCSV;
