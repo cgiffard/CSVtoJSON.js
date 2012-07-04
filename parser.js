@@ -34,6 +34,7 @@ function parseCSV(textData, callback) {
 	callback = callback instanceof Function ? callback : function() {};
 	
 	function logErr(message) {
+		console.log(message);
 		errorLog.push(message);
 	};
 
@@ -129,12 +130,20 @@ function parseCSV(textData, callback) {
 			// Don't include single escape characters in the file.
 			// Just ignore for now
 			
+		} else if (currentCharacter === GRAMMAR_ESCAPE && previousCharacter === GRAMMAR_ESCAPE) {
+			
+			// We just escaped the escape. The previous escape should be ignored, but we'll include this one.
+			currentValue += currentCharacter;
+			
 		} else if (previousCharacter === GRAMMAR_ESCAPE &&
 					(currentCharacter !== GRAMMAR_NEWLINE && currentCharacter !== GRAMMAR_NEWLINE_ALT)) {
 			
 			// Altermate escape logic will go here...
 			// Still parses pretty much anything without any fancy escapes
 			logErr("Hit unhandled escape character '" + currentCharacter + "'. Dropped. [Line " + (++lineIndex) + ", Char " + (++lineCharIndex) + "]");
+			
+			// We just assume this is part of the value.
+			currentValue += previousCharacter + currentCharacter;
 		
 		} else if (previousCharacter === GRAMMAR_NEWLINE && currentCharacter === GRAMMAR_NEWLINE_ALT) {
 			// Windows Line-break.

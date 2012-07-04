@@ -4,7 +4,7 @@ var fs			= require("fs"),
 	parseCSV	= require("./parser.js");
 
 // Collect files we've been asked to parse
-var files = process.argv.slice(1).filter(function(item) { return (item.toLowerCase().indexOf(".js") === -1); });
+var files = process.argv.slice(2).filter(function(item) { return (item.toLowerCase().indexOf(".js") === -1); });
 
 if (files.length) {
 	files.forEach(parseConvert);
